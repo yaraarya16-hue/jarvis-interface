@@ -11,6 +11,12 @@ export default function CoreTranscript() {
   const [typed, setTyped] = useState('');
   const typeRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Compute the time-based greeting only after mount to avoid SSR/client mismatch.
+  const [timeOfDay, setTimeOfDay] = useState<string | null>(null);
+  useEffect(() => {
+    setTimeOfDay(getTimeOfDay());
+  }, []);
+
   // Typewriter effect for the latest JARVIS response
   useEffect(() => {
     if (!jarvisResponse) return;
@@ -68,7 +74,7 @@ export default function CoreTranscript() {
 
       {!transcript && !typed && (
         <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.06em', lineHeight: 1.6 }}>
-          Good {getTimeOfDay()}, Mr. Stark.<br />
+          Good {timeOfDay ?? 'day'}, Mr. Stark.<br />
           All systems nominal — awaiting your command.
         </p>
       )}

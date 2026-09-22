@@ -220,13 +220,14 @@ export default function AICore() {
               const a = (i / 48) * Math.PI * 2;
               const r1 = 150, r2 = 190;
               const long = i % 6 === 0;
+              const round = (n: number) => Math.round(n * 1000) / 1000;
               return (
                 <line
                   key={i}
-                  x1={200 + Math.cos(a) * r1}
-                  y1={200 + Math.sin(a) * r1}
-                  x2={200 + Math.cos(a) * (long ? r2 + 8 : r2)}
-                  y2={200 + Math.sin(a) * (long ? r2 + 8 : r2)}
+                  x1={round(200 + Math.cos(a) * r1)}
+                  y1={round(200 + Math.sin(a) * r1)}
+                  x2={round(200 + Math.cos(a) * (long ? r2 + 8 : r2))}
+                  y2={round(200 + Math.sin(a) * (long ? r2 + 8 : r2))}
                   stroke="#ff9e2c"
                   strokeWidth={long ? 1.4 : 0.6}
                   opacity={long ? 0.5 : 0.22}
@@ -287,13 +288,14 @@ export default function AICore() {
           <g style={{ transformOrigin: '200px 200px', animation: 'spinRev 48s linear infinite' }}>
             {[0, 120, 240].map((deg) => {
               const a = (deg - 90) * (Math.PI / 180);
+              const round = (n: number) => Math.round(n * 1000) / 1000;
               return (
                 <line
                   key={deg}
-                  x1={200 + Math.cos(a) * 30}
-                  y1={200 + Math.sin(a) * 30}
-                  x2={200 + Math.cos(a) * 88}
-                  y2={200 + Math.sin(a) * 88}
+                  x1={round(200 + Math.cos(a) * 30)}
+                  y1={round(200 + Math.sin(a) * 30)}
+                  x2={round(200 + Math.cos(a) * 88)}
+                  y2={round(200 + Math.sin(a) * 88)}
                   stroke="url(#ringGrad)" strokeWidth="2" opacity="0.7"
                 />
               );

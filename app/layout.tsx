@@ -1,9 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "J.A.R.V.I.S. Interface — Stark Industries",
-  description: "Just A Rather Very Intelligent System — Tony Stark was just a vibe coder.",
+  title: "J.A.R.V.I.S. — Stark Industries AI Core",
+  description: "Just A Rather Very Intelligent System — a living holographic AI energy core.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#040302",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

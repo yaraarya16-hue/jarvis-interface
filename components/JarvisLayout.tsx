@@ -2,21 +2,18 @@
 
 import { useEffect, useRef } from 'react';
 import { useJarvisStore } from '@/store/jarvis-state';
-import TopBar from '@/components/TopBar';
-import SuitStatus from '@/components/panels/SuitStatus';
-import ThreatRadar from '@/components/panels/ThreatRadar';
-import WaveformCore from '@/components/panels/WaveformCore';
-import StarkAnalytics from '@/components/panels/StarkAnalytics';
-import CommsLog from '@/components/panels/CommsLog';
 import VoiceController from '@/components/VoiceController';
-import ParticleField from '@/components/animations/ParticleField';
+import AICore from '@/components/animations/AICore';
+import CoreHeader from '@/components/CoreHeader';
+import CoreTranscript from '@/components/CoreTranscript';
+import MicButton from '@/components/MicButton';
 
 export default function JarvisLayout() {
   const easterEggs = useJarvisStore((s) => s.easterEggs);
   const clearEasterEgg = useJarvisStore((s) => s.clearEasterEgg);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Apply easter egg classes to root
+  // Iron Man flash — gold pulse over the whole interface
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -27,18 +24,7 @@ export default function JarvisLayout() {
     }
   }, [easterEggs.ironManFlash, clearEasterEgg]);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (easterEggs.avengersAssemble) {
-      // Flash all panels
-      el.querySelectorAll('.panel').forEach((p) => {
-        p.classList.add('avengers-pulse');
-        setTimeout(() => p.classList.remove('avengers-pulse'), 1400);
-      });
-    }
-  }, [easterEggs.avengersAssemble]);
-
+  // FRIDAY mode — subtle hue shift
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -55,44 +41,51 @@ export default function JarvisLayout() {
       style={{
         position: 'relative',
         height: '100dvh',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         background: 'var(--bg)',
-        zIndex: 1,
       }}
     >
-      <ParticleField />
+      {/* Ambient warm vignette */}
+      <div className="env-vignette" />
 
-      {/* Non-visual voice orchestrator */}
+      {/* Non-visual voice orchestrator (Web Speech + Claude API) */}
       <VoiceController />
 
-      {/* Top bar */}
-      <TopBar />
+      {/* Living AI energy core — fills the environment, stays the focal point */}
+      <AICore />
 
-      {/* Body — fills remaining height */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {/* Top row — 70% */}
-        <div style={{ flex: '0 0 70%', display: 'flex', minHeight: 0 }}>
-          <div style={{ flex: '0 0 30%', minWidth: 0 }}>
-            <SuitStatus />
-          </div>
-          <div style={{ flex: '0 0 35%', minWidth: 0, borderLeft: '1px solid var(--border)' }}>
-            <ThreatRadar />
-          </div>
-          <div style={{ flex: '0 0 35%', minWidth: 0, borderLeft: '1px solid var(--border)' }}>
-            <WaveformCore />
-          </div>
-        </div>
+      {/* Foreground UI */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}
+      >
+        <CoreHeader />
 
-        {/* Bottom row — 30% */}
-        <div style={{ flex: '0 0 30%', display: 'flex', minHeight: 0, borderTop: '1px solid var(--border)' }}>
-          <div style={{ flex: '0 0 60%', minWidth: 0 }}>
-            <StarkAnalytics />
-          </div>
-          <div style={{ flex: '0 0 40%', minWidth: 0, borderLeft: '1px solid var(--border)' }}>
-            <CommsLog />
-          </div>
+        {/* Spacer keeps the core visually centered between header and console */}
+        <div style={{ flex: 1, minHeight: 0 }} />
+
+        {/* Bottom interaction console */}
+        <div
+          style={{
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            padding: '10px 18px calc(20px + env(safe-area-inset-bottom))',
+            background: 'linear-gradient(to top, rgba(4,3,2,0.92) 40%, rgba(4,3,2,0.4) 78%, transparent)',
+          }}
+        >
+          <CoreTranscript />
+          <MicButton />
         </div>
       </div>
     </div>

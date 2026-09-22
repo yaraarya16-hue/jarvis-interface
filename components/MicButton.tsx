@@ -26,6 +26,17 @@ type ExtWindow = Window & typeof globalThis & {
   webkitSpeechRecognition?: new () => ISpeechRecognition;
 };
 
+function MicGlyph() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+    </svg>
+  );
+}
+
 export default function MicButton() {
   const voiceStatus = useJarvisStore((s) => s.voiceStatus);
   const isAlwaysListening = useJarvisStore((s) => s.isAlwaysListening);
@@ -92,135 +103,100 @@ export default function MicButton() {
     if (w._jarvisCall) w._jarvisCall(val);
   };
 
-  const isActive = voiceStatus === 'listening' || voiceStatus === 'processing';
-  void isActive; // used for className
+  const statusLabel =
+    voiceStatus === 'listening' ? 'LISTENING' :
+    voiceStatus === 'processing' ? 'PROCESSING' :
+    voiceStatus === 'responding' ? 'RESPONDING' :
+    'STANDBY';
 
-  if (!hasVoiceSupport) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-        <div style={{
-          fontSize: 9, color: 'var(--warning)', letterSpacing: '0.1em',
-          padding: '4px 8px', border: '1px solid var(--warning)', textAlign: 'center',
-        }}>
-          ⚠ VOICE REQUIRES CHROME — TEXT MODE ACTIVE
-        </div>
-        <form onSubmit={handleTextSubmit} style={{ display: 'flex', gap: 6 }}>
-          <input
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            placeholder="Speak to JARVIS..."
-            style={{
-              flex: 1,
-              background: 'rgba(0,212,255,0.06)',
-              border: '1px solid var(--arc-dark)',
-              color: 'var(--text)',
-              padding: '6px 10px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 12,
-              outline: 'none',
-            }}
-          />
-          <button
-            type="submit"
-            disabled={voiceStatus === 'processing'}
-            style={{
-              background: 'rgba(0,212,255,0.1)',
-              border: '1px solid var(--arc)',
-              color: 'var(--arc)',
-              padding: '6px 12px',
-              fontFamily: 'var(--font-display)',
-              fontSize: 9,
-              letterSpacing: '0.1em',
-              cursor: 'pointer',
-            }}
-          >
-            SEND
-          </button>
-        </form>
-      </div>
-    );
-  }
+  const busy = voiceStatus === 'processing' || voiceStatus === 'responding';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-      {/* Main mic button */}
-      <button
-        className={`mic-btn ${voiceStatus === 'listening' ? 'listening' : ''} ${voiceStatus === 'processing' ? 'processing' : ''}`}
-        onMouseDown={startListening}
-        onMouseUp={stopListening}
-        onTouchStart={startListening}
-        onTouchEnd={stopListening}
-        disabled={voiceStatus === 'processing' || voiceStatus === 'responding'}
-        title="Hold to speak to JARVIS"
-      >
-        {voiceStatus === 'processing' ? (
-          <span style={{ fontSize: 18, animation: 'arcPulse 0.5s ease-in-out infinite' }}>◌</span>
-        ) : voiceStatus === 'responding' ? (
-          <span style={{ fontSize: 18 }}>◉</span>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 14,
+        width: '100%',
+        maxWidth: 440,
+        margin: '0 auto',
+      }}
+    >
+      {/* Mic orb + hint */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+        {hasVoiceSupport ? (
+          <button
+            type="button"
+            aria-label="Hold to speak to JARVIS"
+            className={`mic-orb ${voiceStatus}`}
+            onMouseDown={startListening}
+            onMouseUp={stopListening}
+            onMouseLeave={stopListening}
+            onTouchStart={(e) => { e.preventDefault(); startListening(); }}
+            onTouchEnd={(e) => { e.preventDefault(); stopListening(); }}
+            disabled={busy}
+          >
+            <span className="mic-ripple" />
+            <MicGlyph />
+          </button>
         ) : (
-          <span style={{ fontSize: 20 }}>🎙</span>
+          <div
+            className="mic-orb"
+            style={{ cursor: 'default', opacity: 0.6 }}
+            aria-hidden="true"
+          >
+            <MicGlyph />
+          </div>
         )}
-      </button>
 
-      <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: '0.1em', textAlign: 'center' }}>
-        {voiceStatus === 'standby' && 'HOLD TO SPEAK'}
-        {voiceStatus === 'listening' && '● RECORDING...'}
-        {voiceStatus === 'processing' && '◌ PROCESSING...'}
-        {voiceStatus === 'responding' && '◉ JARVIS RESPONDING'}
+        <div
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 8,
+            letterSpacing: '0.28em',
+            color: voiceStatus === 'standby' ? 'var(--text-dim)' : 'var(--core-bright)',
+            textTransform: 'uppercase',
+          }}
+        >
+          {hasVoiceSupport
+            ? (voiceStatus === 'standby' ? 'HOLD TO SPEAK' : statusLabel)
+            : 'TEXT MODE'}
+        </div>
       </div>
 
-      {/* Always-listening toggle */}
-      <button
-        onClick={toggleAlwaysListening}
-        style={{
-          background: isAlwaysListening ? 'rgba(0,212,255,0.12)' : 'transparent',
-          border: `1px solid ${isAlwaysListening ? 'var(--arc)' : 'var(--border)'}`,
-          color: isAlwaysListening ? 'var(--arc)' : 'var(--text-dim)',
-          padding: '3px 8px',
-          fontFamily: 'var(--font-display)',
-          fontSize: 8,
-          letterSpacing: '0.1em',
-          cursor: 'pointer',
-          textTransform: 'uppercase',
-        }}
-      >
-        {isAlwaysListening ? '● ALWAYS LISTENING' : '○ PUSH TO TALK'}
-      </button>
-
-      {/* Text fallback always available */}
-      <form onSubmit={handleTextSubmit} style={{ display: 'flex', gap: 4, width: '100%' }}>
+      {/* Text input row */}
+      <form onSubmit={handleTextSubmit} style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
         <input
           value={textInput}
           onChange={(e) => setTextInput(e.target.value)}
-          placeholder="Or type here..."
-          style={{
-            flex: 1,
-            background: 'rgba(0,212,255,0.04)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            padding: '4px 8px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            outline: 'none',
-            minWidth: 0,
-          }}
+          placeholder="Type a command for JARVIS…"
+          className="console-input"
+          aria-label="Type a command for JARVIS"
         />
-        <button
-          type="submit"
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--arc-dark)',
-            color: 'var(--arc-dim)',
-            padding: '4px 8px',
-            fontFamily: 'var(--font-display)',
-            fontSize: 8,
-            letterSpacing: '0.08em',
-            cursor: 'pointer',
-          }}
-        >
-          ▶
+        <button type="submit" className="console-send" aria-label="Send command">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
         </button>
       </form>
+
+      {/* Always-listening toggle */}
+      {hasVoiceSupport && (
+        <button
+          type="button"
+          onClick={toggleAlwaysListening}
+          className="mode-chip"
+          style={{
+            border: `1px solid ${isAlwaysListening ? 'rgba(255,158,44,0.55)' : 'var(--border)'}`,
+            color: isAlwaysListening ? 'var(--core-bright)' : 'var(--text-dim)',
+            background: isAlwaysListening ? 'rgba(255,158,44,0.10)' : 'transparent',
+          }}
+        >
+          {isAlwaysListening ? '● Always Listening' : '○ Push To Talk'}
+        </button>
+      )}
     </div>
   );
 }

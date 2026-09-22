@@ -26,6 +26,38 @@ type ExtWindow = Window & typeof globalThis & {
   webkitSpeechRecognition?: new () => ISpeechRecognition;
 };
 
+// Choose the deepest, calmest English male voice the device offers, with a
+// graceful fallback to any English voice, then any voice at all.
+export function pickJarvisVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  if (!voices || voices.length === 0) return null;
+
+  const english = voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+  const pool = english.length ? english : voices;
+
+  // Named voices known to be low, clear and mature — British-leaning first.
+  const preferred = [
+    'google uk english male',
+    'microsoft ryan', 'microsoft guy', 'microsoft george', 'microsoft davis',
+    'daniel', 'arthur', 'oliver', 'rishi', 'alex', 'aaron', 'fred', 'thomas',
+  ];
+  for (const name of preferred) {
+    const match = pool.find((v) => v.name.toLowerCase().includes(name));
+    if (match) return match;
+  }
+
+  const femaleHint = /female|woman|zira|samantha|victoria|karen|moira|tessa|fiona|susan|hazel|catherine|serena|amelie|joana|luciana|paulina|allison|ava|nicky/i;
+  const maleHint = /male|\bman\b|david|james|george|guy|ryan|daniel|arthur|oliver|alex|fred|aaron|rishi|thomas|mark|paul/i;
+
+  // Prefer an explicitly male voice, biasing toward en-GB for a cinematic tone.
+  const gb = pool.filter((v) => v.lang.toLowerCase() === 'en-gb');
+  const male =
+    gb.find((v) => maleHint.test(v.name)) ??
+    pool.find((v) => maleHint.test(v.name)) ??
+    pool.find((v) => !femaleHint.test(v.name));
+
+  return male ?? pool[0];
+}
+
 export default function VoiceController() {
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
@@ -48,13 +80,12 @@ export default function VoiceController() {
     if (typeof window === 'undefined' || !text) return;
     speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = 0.92;
-    utt.pitch = 0.82;
-    utt.volume = 0.9;
-    const britishVoice = voicesRef.current.find(
-      (v) => v.lang === 'en-GB' && (v.name.includes('Daniel') || v.name.toLowerCase().includes('google'))
-    ) ?? voicesRef.current.find((v) => v.lang.startsWith('en-GB'));
-    if (britishVoice) utt.voice = britishVoice;
+    // Measured, calm, cinematic delivery — slightly slower with a natural pitch.
+    utt.rate = 0.9;
+    utt.pitch = 0.9;
+    utt.volume = 1;
+    const voice = pickJarvisVoice(voicesRef.current);
+    if (voice) utt.voice = voice;
     utt.onstart = () => setVoiceStatus('responding');
     utt.onend = () => setVoiceStatus('standby');
     utt.onerror = () => setVoiceStatus('standby');
@@ -88,29 +119,6 @@ export default function VoiceController() {
       const data: JarvisApiResponse = await res.json();
       store.processJarvisResponse(data);
       store.addMissionLog('JARVIS RESPONSE DELIVERED');
-
-      // Easter eggs
-      if (data.easterEgg) {
-        store.triggerEasterEgg(data.easterEgg);
-
-        if (data.easterEgg === 'ironMan') {
-          store.updateSuit({ arcReactorOutput: 100 });
-          setTimeout(() => store.clearEasterEgg('ironMan'), 1600);
-        }
-        if (data.easterEgg === 'avengersAssemble') {
-          store.addAnalyticsLine({
-            text: '    /\\      \n   /  \\     \n  / /\\ \\    \n /_/__\\_\\   \n  AVENGERS  ',
-            type: 'ascii',
-          });
-          setTimeout(() => store.clearEasterEgg('avengersAssemble'), 2000);
-        }
-        if (data.easterEgg === 'friday') {
-          setTimeout(() => store.clearEasterEgg('friday'), 8000);
-        }
-        if (data.easterEgg === 'thanos') {
-          store.addMissionLog('⚠ INFINITY GAUNTLET SIGNATURE DETECTED');
-        }
-      }
 
       speakJarvis(data.voiceText);
     } catch (err) {

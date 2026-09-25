@@ -58,7 +58,7 @@ export default function TopBar() {
           letterSpacing: '0.25em',
           color: 'var(--gold)',
         }}>
-          STARK INDUSTRIES
+          AUTONOMOUS AI CORE
         </span>
         <span style={{
           fontFamily: 'var(--font-display)',

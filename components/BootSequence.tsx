@@ -14,7 +14,7 @@ interface BootLine {
 const BOOT_LINES: BootLine[] = [
   { text: '', delay: 200, type: 'dim' },
   { text: '╔═══════════════════════════════════════════════╗', delay: 100, type: 'gold' },
-  { text: '║      S T A R K   I N D U S T R I E S          ║', delay: 50,  type: 'gold' },
+  { text: '║            J . A . R . V . I . S .            ║', delay: 50,  type: 'gold' },
   { text: '║        MALIBU, CA  —  CLASSIFIED SYSTEMS       ║', delay: 50,  type: 'gold' },
   { text: '╚═══════════════════════════════════════════════╝', delay: 100,  type: 'gold' },
   { text: '', delay: 250, type: 'dim' },
@@ -24,7 +24,7 @@ const BOOT_LINES: BootLine[] = [
   { text: 'Repulsor Calibration Systems .......... [ONLINE]',   delay: 280, type: 'ok' },
   { text: 'Mark L Armor Bus ...................... [READY]',     delay: 300, type: 'ok' },
   { text: 'Threat Detection Array ................ [ACTIVE]',   delay: 320, type: 'ok' },
-  { text: 'Stark Analytics Engine ................ [RUNNING]',  delay: 260, type: 'ok' },
+  { text: 'Core Analytics Engine ................. [RUNNING]',  delay: 260, type: 'ok' },
   { text: 'Communications Relay .................. [OPEN]',     delay: 240, type: 'ok' },
   { text: 'Neural Interface Link ................. [ESTABLISHED]', delay: 300, type: 'ok' },
   { text: 'Voice Synthesis Module ................ [ONLINE]',   delay: 220, type: 'ok' },
@@ -32,7 +32,7 @@ const BOOT_LINES: BootLine[] = [
   { text: '⚠ SOKOVIA ACCORD STATUS: PENDING REVIEW',           delay: 200, type: 'warning' },
   { text: '⚠ Mark L structural integrity at 94% — routine wear', delay: 150, type: 'warning' },
   { text: '', delay: 300, type: 'dim' },
-  { text: 'Good morning, Mr. Stark.',     delay: 500, type: 'arc' },
+  { text: 'Good morning, Sir.',     delay: 500, type: 'arc' },
   { text: 'All systems nominal.', delay: 250, type: 'arc' },
   { text: '', delay: 200, type: 'dim' },
   { text: 'Voice interface ready. Say "Hey JARVIS" or use the microphone.', delay: 100, type: 'dim' },
@@ -73,7 +73,7 @@ export default function BootSequence({ onComplete }: { onComplete: () => void })
 
       // Speak welcome
       if (!cancelled && typeof window !== 'undefined' && window.speechSynthesis) {
-        const utt = new SpeechSynthesisUtterance('Good morning, Mr. Stark. All systems nominal.');
+        const utt = new SpeechSynthesisUtterance('Good morning, Sir. All systems nominal.');
         utt.rate = 0.92;
         utt.pitch = 0.82;
         const voices = speechSynthesis.getVoices();

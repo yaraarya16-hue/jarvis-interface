@@ -164,7 +164,7 @@ export default function WaveformCore() {
         {!transcript && !typedResponse && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 4 }}>
             <div style={{ color: 'var(--text-dim)', fontSize: 11, textAlign: 'center', letterSpacing: '0.05em' }}>
-              Good {getTimeOfDay()}, Mr. Stark.
+              Good {getTimeOfDay()}, Sir.
             </div>
             <div style={{ color: 'var(--text-dim)', fontSize: 10, textAlign: 'center', opacity: 0.7 }}>
               All systems nominal. Awaiting your command.

@@ -69,7 +69,7 @@ export default function StarkAnalytics() {
   return (
     <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className="panel-header">
-        <span>Stark Analytics</span>
+        <span>J.A.R.V.I.S. Analytics</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isAnalyzing && (
             <span style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: '0.1em', animation: 'blink 0.6s step-end infinite' }}>

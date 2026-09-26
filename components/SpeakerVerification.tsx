@@ -52,7 +52,7 @@ export async function beginSpeakerCapture() {
     },
   };
 
-  WebVoiceProcessor.setOptions({ frameLength: eagle.frameLength, outputSampleRate: eagle.sampleRate });
+  WebVoiceProcessor.setOptions({ frameLength: eagle.minProcessSamples, outputSampleRate: eagle.sampleRate });
   await WebVoiceProcessor.subscribe(audioEngine);
   return { locked: true };
 }

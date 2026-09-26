@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Fish Audio synthesis failed' }, { status: 502 });
   }
 
-  const audio = await response.arrayBuffer();
+  const audio = Buffer.from(await response.arrayBuffer());
   return new NextResponse(audio, {
     status: 200,
     headers: { 'Content-Type': response.headers.get('content-type') || 'audio/mpeg', 'Cache-Control': 'no-store' },

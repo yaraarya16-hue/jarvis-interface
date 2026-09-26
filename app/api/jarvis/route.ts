@@ -101,7 +101,7 @@ async function callOpenAICompatible(
     },
     body: JSON.stringify({
       model,
-        max_tokens: 1024,
+      max_tokens: 1024,
       messages: [{ role: 'system', content: JARVIS_SYSTEM_PROMPT }, ...messages],
     }),
   });
@@ -130,7 +130,7 @@ async function callGroq(messages: ChatMessage[]) {
 }
 
 async function callOpenRouter(messages: ChatMessage[]) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OpenRouter_API_KEY;
   if (!apiKey) throw new Error('OpenRouter is not configured');
 
   return callOpenAICompatible(

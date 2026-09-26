@@ -1,9 +1,14 @@
-import { cp, mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-const source = join(process.cwd(), 'node_modules/@picovoice/eagle-web/lib/common/eagle_params.pv');
 const target = join(process.cwd(), 'public/eagle_params.pv');
+const modelUrl = 'https://raw.githubusercontent.com/Picovoice/eagle/main/lib/common/eagle_params.pv';
 
 await mkdir(dirname(target), { recursive: true });
-await cp(source, target);
-console.log('Copied Eagle model to public/eagle_params.pv');
+const response = await fetch(modelUrl);
+if (!response.ok) {
+  throw new Error('Failed to download Eagle model: HTTP ' + response.status);
+}
+const model = Buffer.from(await response.arrayBuffer());
+await writeFile(target, model);
+console.log('Downloaded Eagle model to public/eagle_params.pv (' + model.length + ' bytes)');

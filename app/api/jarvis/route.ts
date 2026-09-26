@@ -6,29 +6,26 @@ type Provider = 'claude-sonnet' | 'claude-haiku' | 'groq' | 'gemini' | 'openrout
 type JarvisApiResponse = { response: string; voiceText: string; mood: 'neutral' | 'concerned' | 'urgent' | 'sardonic' | 'alarmed' };
 
 const FALLBACK_ORDER: Provider[] = ['claude-sonnet', 'claude-haiku', 'groq', 'gemini', 'openrouter'];
-const JARVIS_SYSTEM_PROMPT =
-  'You are J.A.R.V.I.S., a calm, capable personal AI assistant. Address the user as "Sir".\n' +
-  'Keep responses focused on the user\'s request and do not introduce unrelated fictional lore.\n' +
-  'Return ONLY one JSON object with keys response, voiceText, and mood.\n' +
-  'voiceText must be a natural, concise version suitable for speech. Never use markdown fences.';
+const JARVIS_SYSTEM_PROMPT = [
+  'You are J.A.R.V.I.S., a calm, capable personal AI assistant. Address the user as "Sir".',
+  'Keep responses focused on the user request. Do not introduce unrelated fictional lore.',
+  'Return ONLY one JSON object with keys response, voiceText, and mood.',
+  'voiceText must be a natural concise version suitable for speech. Never use markdown fences.',
+].join('\n');
 
 function parseJarvisResponse(text: string): JarvisApiResponse {
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed?.response === 'string') {
-      return {
-        response: parsed.response,
-        voiceText: typeof parsed.voiceText === 'string' && parsed.voiceText.trim() ? parsed.voiceText : parsed.response,
-        mood: ['neutral', 'concerned', 'urgent', 'sardonic', 'alarmed'].includes(parsed.mood) ? parsed.mood : 'neutral',
-      };
-    }
-  } catch {}
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first !== -1 && last > first) {
+  const candidates = [text, text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)];
+  for (const candidate of candidates) {
+    if (!candidate || candidate.length < 2) continue;
     try {
-      const parsed = JSON.parse(text.slice(first, last + 1));
-      if (typeof parsed?.response === 'string') return { response: parsed.response, voiceText: parsed.voiceText || parsed.response, mood: 'neutral' };
+      const parsed = JSON.parse(candidate);
+      if (typeof parsed?.response === 'string') {
+        return {
+          response: parsed.response,
+          voiceText: typeof parsed.voiceText === 'string' && parsed.voiceText.trim() ? parsed.voiceText : parsed.response,
+          mood: ['neutral', 'concerned', 'urgent', 'sardonic', 'alarmed'].includes(parsed.mood) ? parsed.mood : 'neutral',
+        };
+      }
     } catch {}
   }
   const clean = text.replace(/[*_#]/g, '').trim();
@@ -38,8 +35,6 @@ function parseJarvisResponse(text: string): JarvisApiResponse {
 function normalizeMessages(history: ChatMessage[], current: string): ChatMessage[] {
   return [...history.slice(-16), { role: 'user', content: current }];
 }
-
-function getStatus(error: unknown) { return (error as { status?: number })?.status; }
 
 async function callClaude(messages: ChatMessage[], tier: 'sonnet' | 'haiku') {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -55,14 +50,14 @@ async function callClaude(messages: ChatMessage[], tier: 'sonnet' | 'haiku') {
 }
 
 async function callOpenAICompatible(baseUrl: string, apiKey: string, model: string, messages: ChatMessage[]) {
-  const response = await fetch(baseUrl.replace(//$/, '') + '/chat/completions', {
+  const response = await fetch(baseUrl.replace(/\/$/, '') + '/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
     body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: 'system', content: JARVIS_SYSTEM_PROMPT }, ...messages] }),
   });
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    const error = new Error(String(response.status) + ': ' + body.slice(0, 300)) as Error & { status?: number };
+    const error = new Error(response.status + ': ' + body.slice(0, 300)) as Error & { status?: number };
     error.status = response.status;
     throw error;
   }
@@ -71,35 +66,30 @@ async function callOpenAICompatible(baseUrl: string, apiKey: string, model: stri
 }
 
 async function callGroq(messages: ChatMessage[]) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error('Groq is not configured');
-  return callOpenAICompatible('https://api.groq.com/openai/v1', apiKey, process.env.GROQ_MODEL || 'openai/gpt-oss-120b', messages);
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('Groq is not configured');
+  return callOpenAICompatible('https://api.groq.com/openai/v1', key, process.env.GROQ_MODEL || 'openai/gpt-oss-120b', messages);
 }
 
 async function callOpenRouter(messages: ChatMessage[]) {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OpenRouter_API_KEY;
-  if (!apiKey) throw new Error('OpenRouter is not configured');
-  return callOpenAICompatible('https://openrouter.ai/api/v1', apiKey, process.env.OPENROUTER_MODEL || 'openrouter/free', messages);
+  const key = process.env.OPENROUTER_API_KEY || process.env.OpenRouter_API_KEY;
+  if (!key) throw new Error('OpenRouter is not configured');
+  return callOpenAICompatible('https://openrouter.ai/api/v1', key, process.env.OPENROUTER_MODEL || 'openrouter/free', messages);
 }
 
 async function callGemini(messages: ChatMessage[]) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Gemini is not configured');
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('Gemini is not configured');
   const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-  const contents = messages.map((message) => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text: message.content }] }));
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey), {
+  const contents = messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: JARVIS_SYSTEM_PROMPT }] }, contents }),
   });
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    const error = new Error(String(response.status) + ': ' + body.slice(0, 300)) as Error & { status?: number };
-    error.status = response.status;
-    throw error;
-  }
+  if (!response.ok) throw new Error('Gemini HTTP ' + response.status);
   const data = await response.json();
-  return data?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || '').join('') || '';
+  return data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
 }
 
 async function callProvider(provider: Provider, messages: ChatMessage[]) {
@@ -124,14 +114,13 @@ export async function POST(request: NextRequest) {
       if (!text.trim()) throw new Error('Empty response');
       return NextResponse.json(parseJarvisResponse(text), { headers: { 'X-Jarvis-Provider': provider } });
     } catch (error) {
-      const status = getStatus(error);
       const message = error instanceof Error ? error.message : String(error);
       errors.push(provider + ': ' + message.slice(0, 160));
-      console.error('JARVIS ' + provider + ' error [' + (status ?? 'unknown') + ']:', error);
+      console.error('JARVIS ' + provider + ' error:', error);
     }
   }
 
-  const fallback = 'I could not reach any configured AI service right now.';
   console.error('All AI providers failed:', errors);
+  const fallback = 'I could not reach any configured AI service right now.';
   return NextResponse.json({ response: fallback, voiceText: fallback, mood: 'concerned' }, { status: 200 });
 }

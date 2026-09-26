@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useJarvisStore, JarvisApiResponse } from '@/store/jarvis-state';
 
 interface SpeechRecognitionResultLike { readonly 0: { transcript: string }; }
@@ -47,7 +47,7 @@ export default function VoiceController() {
   const setTranscript = useJarvisStore((s) => s.setTranscript);
   const isAlwaysListening = useJarvisStore((s) => s.isAlwaysListening);
   const setAnalyzing = useJarvisStore((s) => s.setAnalyzing);
-  const setIsListening = useJarvisStore((s) => s.setIsListening);
+  const [isListening, setIsListening] = useState(false);
   const addUserToHistory = useJarvisStore((s) => s.addUserToHistory);
   const processJarvisResponse = useJarvisStore((s) => s.processJarvisResponse);
   const chatHistory = useJarvisStore((s) => s.chatHistory);

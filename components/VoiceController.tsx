@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useJarvisStore } from '@/store/jarvis-state';
+import { useJarvisStore, JarvisApiResponse } from '@/store/jarvis-state';
 
 interface SpeechRecognitionResultLike { readonly 0: { transcript: string }; }
 interface SpeechRecognitionEventLike extends Event { readonly results: ArrayLike<SpeechRecognitionResultLike>; }
@@ -78,7 +78,7 @@ export default function VoiceController() {
           alertLevel: radar.alertLevel,
         }),
       });
-      const data = await response.json() as { voiceText?: string; response?: string };
+      const data = await response.json() as JarvisApiResponse;
       processJarvisResponse(data);
       speakJarvis(data.voiceText || data.response || '');
     } catch (error) {

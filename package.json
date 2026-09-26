@@ -6,10 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prebuild": "node scripts/copy-eagle-model.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
+    "@picovoice/eagle-web": "^3.0.1",
+    "@picovoice/web-voice-processor": "^4.0.10",
     "next": "16.2.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",

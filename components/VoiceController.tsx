@@ -19,8 +19,23 @@ type ExtWindow = Window & {
   webkitSpeechRecognition?: SpeechRecognitionConstructor;
 };
 
+const audioPlayer = typeof Audio !== 'undefined' ? new Audio() : null;
+let audioUnlocked = false;
+
+function unlockAudio() {
+  if (audioUnlocked || !audioPlayer) return;
+  audioPlayer.muted = true;
+  audioPlayer.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+  void audioPlayer.play().then(() => {
+    audioPlayer.pause();
+    audioPlayer.currentTime = 0;
+    audioUnlocked = true;
+  }).catch(() => {});
+}
+
 async function playFishAudio(text: string, onStart: () => void, onEnd: () => void, onError: () => void) {
   try {
+    if (!audioPlayer) throw new Error('Audio playback is unavailable');
     const response = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,11 +44,21 @@ async function playFishAudio(text: string, onStart: () => void, onEnd: () => voi
     if (!response.ok) throw new Error('Fish Audio request failed');
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onplay = onStart;
-    audio.onended = () => { onEnd(); URL.revokeObjectURL(url); };
-    audio.onerror = () => { onError(); URL.revokeObjectURL(url); };
-    await audio.play();
+
+    audioPlayer.pause();
+    audioPlayer.src = url;
+    audioPlayer.muted = false;
+    audioPlayer.onplay = onStart;
+    audioPlayer.onended = () => {
+      onEnd();
+      URL.revokeObjectURL(url);
+    };
+    audioPlayer.onerror = () => {
+      onError();
+      URL.revokeObjectURL(url);
+    };
+
+    await audioPlayer.play();
   } catch (error) {
     console.error('Fish Audio playback failed:', error);
     onError();
@@ -41,6 +66,16 @@ async function playFishAudio(text: string, onStart: () => void, onEnd: () => voi
 }
 
 export default function VoiceController() {
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const callingRef = useRef(false);
   const setVoiceStatus = useJarvisStore((s) => s.setVoiceStatus);
@@ -125,7 +160,7 @@ export default function VoiceController() {
     recognitionRef.current = recognition;
     if (isAlwaysListening) { try { recognition.start(); } catch {} }
     return () => { try { recognition.stop(); } catch {} recognitionRef.current = null; };
-  }, [callJarvis, isAlwaysListening, setIsListening, setTranscript, setVoiceStatus]);
+  }, [callJarvis, isAlwaysListening, setTranscript, setVoiceStatus]);
 
   useEffect(() => {
     const recognition = recognitionRef.current;

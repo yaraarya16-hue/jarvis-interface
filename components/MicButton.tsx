@@ -1,34 +1,35 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useJarvisStore } from '@/store/jarvis-state';
 
-// Speech API types (not in TS DOM lib by default in some configs)
-interface ISpeechRecognitionResult { readonly 0: { transcript: string }; }
-interface ISpeechRecognitionEvent extends Event {
-  results: ISpeechRecognitionResult[] & { length: number };
+interface SpeechRecognitionResultLike {
+  readonly 0: { transcript: string };
 }
-interface ISpeechRecognition extends EventTarget {
+interface SpeechRecognitionEventLike extends Event {
+  readonly results: ArrayLike<SpeechRecognitionResultLike>;
+}
+interface SpeechRecognitionLike extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
-  onresult: ((event: ISpeechRecognitionEvent) => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onstart: (() => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event?: Event) => void) | null;
   start(): void;
   stop(): void;
 }
-
-type ExtWindow = Window & typeof globalThis & {
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type ExtWindow = Window & {
   _jarvisCall?: (msg: string) => void;
-  SpeechRecognition?: new () => ISpeechRecognition;
-  webkitSpeechRecognition?: new () => ISpeechRecognition;
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
 };
 
 function MicGlyph() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="9" y="2" width="6" height="11" rx="3" />
       <path d="M5 10a7 7 0 0 0 14 0" />
       <line x1="12" y1="17" x2="12" y2="21" />
@@ -44,21 +45,32 @@ export default function MicButton() {
   const setTranscript = useJarvisStore((s) => s.setTranscript);
   const setVoiceStatus = useJarvisStore((s) => s.setVoiceStatus);
 
-  const [hasVoiceSupport, setHasVoiceSupport] = useState(true);
-  const [textInput, setTextInput] = useState('');
-  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const [supported, setSupported] = useState(true);
+  const [pressed, setPressed] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const transcriptRef = useRef('');
+  const activeRef = useRef(false);
 
   useEffect(() => {
     const w = window as ExtWindow;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    setHasVoiceSupport(!!SR);
+    setSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
   }, []);
 
-  const startListening = () => {
+  const stopRecognition = useCallback(() => {
+    activeRef.current = false;
+    try { recognitionRef.current?.stop(); } catch {}
+    setPressed(false);
+  }, []);
+
+  const startRecognition = useCallback(() => {
+    if (activeRef.current) return;
+
     const w = window as ExtWindow;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR) {
+      setSupported(false);
+      return;
+    }
 
     const recognition = new SR();
     recognition.continuous = false;
@@ -66,135 +78,117 @@ export default function MicButton() {
     recognition.lang = 'en-US';
 
     transcriptRef.current = '';
-    recognition.onresult = (event: ISpeechRecognitionEvent) => {
-      const t = Array.from({ length: event.results.length }, (_, i) => event.results[i][0].transcript).join('');
-      transcriptRef.current = t;
-      setTranscript(t);
-    };
+    setTranscript('');
+    activeRef.current = true;
+    setPressed(true);
 
     recognition.onstart = () => setVoiceStatus('listening');
 
+    recognition.onresult = (event) => {
+      let text = '';
+      for (let i = 0; i < event.results.length; i++) {
+        text += event.results[i][0].transcript;
+      }
+      transcriptRef.current = text;
+      setTranscript(text);
+    };
+
+    recognition.onerror = () => {
+      activeRef.current = false;
+      setPressed(false);
+      setVoiceStatus('standby');
+    };
+
     recognition.onend = () => {
-      const final = transcriptRef.current.trim();
-      if (final && w._jarvisCall) {
-        w._jarvisCall(final);
+      const finalText = transcriptRef.current.trim();
+      const call = (window as ExtWindow)._jarvisCall;
+
+      activeRef.current = false;
+      setPressed(false);
+
+      if (finalText && call) {
+        setVoiceStatus('processing');
+        call(finalText);
       } else {
         setVoiceStatus('standby');
       }
     };
 
-    recognition.onerror = () => setVoiceStatus('standby');
-
-    recognition.start();
     recognitionRef.current = recognition;
-  };
 
-  const stopListening = () => {
-    recognitionRef.current?.stop();
-  };
+    try {
+      recognition.start();
+    } catch {
+      activeRef.current = false;
+      setPressed(false);
+      setVoiceStatus('standby');
+    }
+  }, [setTranscript, setVoiceStatus]);
 
-  const handleTextSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const val = textInput.trim();
-    if (!val) return;
-    setTranscript(val);
-    setTextInput('');
-    const w = window as ExtWindow;
-    if (w._jarvisCall) w._jarvisCall(val);
-  };
+  useEffect(() => {
+    return () => {
+      activeRef.current = false;
+      try { recognitionRef.current?.stop(); } catch {}
+    };
+  }, []);
 
   const statusLabel =
     voiceStatus === 'listening' ? 'LISTENING' :
     voiceStatus === 'processing' ? 'PROCESSING' :
     voiceStatus === 'responding' ? 'RESPONDING' :
-    'STANDBY';
-
-  const busy = voiceStatus === 'processing' || voiceStatus === 'responding';
+    supported ? 'HOLD TO SPEAK' : 'TEXT MODE';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 14,
-        width: '100%',
-        maxWidth: 440,
-        margin: '0 auto',
-      }}
-    >
-      {/* Mic orb + hint */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-        {hasVoiceSupport ? (
-          <button
-            type="button"
-            aria-label="Hold to speak to JARVIS"
-            className={`mic-orb ${voiceStatus}`}
-            onMouseDown={startListening}
-            onMouseUp={stopListening}
-            onMouseLeave={stopListening}
-            onTouchStart={(e) => { e.preventDefault(); startListening(); }}
-            onTouchEnd={(e) => { e.preventDefault(); stopListening(); }}
-            disabled={busy}
-          >
-            <span className="mic-ripple" />
-            <MicGlyph />
-          </button>
-        ) : (
-          <div
-            className="mic-orb"
-            style={{ cursor: 'default', opacity: 0.6 }}
-            aria-hidden="true"
-          >
-            <MicGlyph />
-          </div>
-        )}
-
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 8,
-            letterSpacing: '0.28em',
-            color: voiceStatus === 'standby' ? 'var(--text-dim)' : 'var(--core-bright)',
-            textTransform: 'uppercase',
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: '100%', maxWidth: 440, margin: '0 auto' }}>
+      {supported ? (
+        <button
+          type="button"
+          aria-label="Hold to speak to JARVIS"
+          className={`mic-orb ${voiceStatus}${pressed ? ' is-pressed' : ''}`}
+          style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.currentTarget.setPointerCapture?.(e.pointerId);
+            startRecognition();
           }}
+          onPointerUp={(e) => {
+            e.preventDefault();
+            stopRecognition();
+          }}
+          onPointerCancel={(e) => {
+            e.preventDefault();
+            stopRecognition();
+          }}
+          onLostPointerCapture={stopRecognition}
+          disabled={voiceStatus === 'processing' || voiceStatus === 'responding'}
         >
-          {hasVoiceSupport
-            ? (voiceStatus === 'standby' ? 'HOLD TO SPEAK' : statusLabel)
-            : 'TEXT MODE'}
+          <span className="mic-ripple" />
+          <MicGlyph />
+        </button>
+      ) : (
+        <div className="mic-orb" aria-hidden="true" style={{ opacity: 0.55 }}>
+          <MicGlyph />
         </div>
+      )}
+
+      <div style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 8,
+        letterSpacing: '0.28em',
+        color: voiceStatus === 'standby' ? 'var(--text-dim)' : 'var(--core-bright)',
+        textTransform: 'uppercase'
+      }}>
+        {statusLabel}
       </div>
 
-      {/* Text input row */}
-      <form onSubmit={handleTextSubmit} style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
-        <input
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          placeholder="Type a command for JARVIS…"
-          className="console-input"
-          aria-label="Type a command for JARVIS"
-        />
-        <button type="submit" className="console-send" aria-label="Send command">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
-        </button>
-      </form>
-
-      {/* Always-listening toggle */}
-      {hasVoiceSupport && (
+      {supported && (
         <button
           type="button"
           onClick={toggleAlwaysListening}
           className="mode-chip"
-          style={{
-            border: `1px solid ${isAlwaysListening ? 'rgba(255,158,44,0.55)' : 'var(--border)'}`,
-            color: isAlwaysListening ? 'var(--core-bright)' : 'var(--text-dim)',
-            background: isAlwaysListening ? 'rgba(255,158,44,0.10)' : 'transparent',
-          }}
+          aria-pressed={isAlwaysListening}
         >
-          {isAlwaysListening ? '● Always Listening' : '○ Push To Talk'}
+          {isAlwaysListening ? '◉ ALWAYS LISTENING' : '▷ PUSH TO TALK'}
         </button>
       )}
     </div>
